@@ -114,6 +114,7 @@ class HistoricalRecordsTest(TestCase):
     def test_delete(self):
         p = Poll.objects.create(question="what's up?", pub_date=today)
         poll_id = p.id
+        p.changeReason = "Deleting for a test"
         p.delete()
         delete_record, create_record = Poll.history.all()
         self.assertRecordValues(create_record, Poll, {
@@ -126,14 +127,17 @@ class HistoricalRecordsTest(TestCase):
             'question': "what's up?",
             'pub_date': today,
             'id': poll_id,
+            'history_change_reason': "Deleting for a test",
             'history_type': "-"
         })
 
     def test_save_without_historical_record(self):
         pizza_place = Restaurant.objects.create(name='Pizza Place', rating=3)
         pizza_place.rating = 4
+        pizza_place.changeReason = "Testing saving without historical record"
         pizza_place.save_without_historical_record()
         pizza_place.rating = 6
+        pizza_place.changeReason = "Saving with historical record"
         pizza_place.save()
         update_record, create_record = Restaurant.updates.all()
         self.assertRecordValues(create_record, Restaurant, {
@@ -141,12 +145,14 @@ class HistoricalRecordsTest(TestCase):
             'rating': 3,
             'id': pizza_place.id,
             'history_type': "+",
+            'history_change_reason': None
         })
         self.assertRecordValues(update_record, Restaurant, {
             'name': "Pizza Place",
             'rating': 6,
             'id': pizza_place.id,
             'history_type': "~",
+            'history_change_reason': "Saving with historical record"
         })
 
     def test_save_without_historical_record_for_registered_model(self):

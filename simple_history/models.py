@@ -77,19 +77,22 @@ class HistoricalRecords(object):
         setattr(cls, 'save_without_historical_record',
                 save_without_historical_record)
 
+    def setup_db_listeners(self, sender):
+        # The HistoricalRecords object will be discarded,
+        # so the signal handlers can't use weak references.
+        kwargs = {"sender": sender, "weak": False}
+        models.signals.pre_save.connect(self.pre_save, **kwargs)
+        models.signals.post_save.connect(self.post_save, **kwargs)
+        models.signals.pre_delete.connect(self.pre_save, **kwargs)
+        models.signals.post_delete.connect(self.post_delete, **kwargs)
+
     def finalize(self, sender, **kwargs):
         history_model = self.create_history_model(sender)
         module = importlib.import_module(self.module)
         setattr(module, history_model.__name__, history_model)
 
-        # The HistoricalRecords object will be discarded,
-        # so the signal handlers can't use weak references.
-        models.signals.pre_save.connect(self.pre_save, sender=sender,
-                                         weak=False)
-        models.signals.post_save.connect(self.post_save, sender=sender,
-                                         weak=False)
-        models.signals.post_delete.connect(self.post_delete, sender=sender,
-                                           weak=False)
+        # We listen on model updates to update the historical model in tandem
+        self.setup_db_listeners(sender)
 
         descriptor = HistoryDescriptor(history_model)
         setattr(sender, self.manager_name, descriptor)
@@ -230,16 +233,15 @@ class HistoricalRecords(object):
         if not kwargs.get('raw', False):
             self.create_historical_record(instance, created and '+' or '~')
 
+    def pre_save(self, instance, **kwargs):
+        self.store_change_reason(instance)
+
     def store_change_reason(self, instance):
-        # If the change reason has been set, store it for save
+        # If the change reason has been set, store it for saving later
         if hasattr(instance, 'changeReason'):
             self.change_reason = instance.changeReason
         elif hasattr(instance, 'change_reason'):
             self.change_reason = instance.change_reason
-
-    def pre_save(self, instance, **kwargs):
-        self.store_change_reason(instance)
-
 
     def post_delete(self, instance, **kwargs):
         self.create_historical_record(instance, '-')
