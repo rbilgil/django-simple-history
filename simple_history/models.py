@@ -3,7 +3,7 @@ from __future__ import unicode_literals
 import threading
 import copy
 import warnings
-
+import re
 import django
 from django.db import models, router
 from django.db.models.fields.proxy import OrderWrt
@@ -45,6 +45,7 @@ class HistoricalRecords(object):
 
     def __init__(self, verbose_name=None, bases=(models.Model,),
                  user_related_name='+'):
+        self.change_reason = None  # Keep track of why the record was changed
         self.user_set_verbose_name = verbose_name
         self.user_related_name = user_related_name
         try:
@@ -83,6 +84,8 @@ class HistoricalRecords(object):
 
         # The HistoricalRecords object will be discarded,
         # so the signal handlers can't use weak references.
+        models.signals.pre_save.connect(self.pre_save, sender=sender,
+                                         weak=False)
         models.signals.post_save.connect(self.post_save, sender=sender,
                                          weak=False)
         models.signals.post_delete.connect(self.post_delete, sender=sender,
@@ -194,6 +197,7 @@ class HistoricalRecords(object):
                 ('~', 'Changed'),
                 ('-', 'Deleted'),
             )),
+            'history_change_reason': models.CharField(max_length=100, null=True),
             'history_object': HistoricalObjectDescriptor(model),
             'instance': property(get_instance),
             'instance_type': model,
@@ -216,6 +220,7 @@ class HistoricalRecords(object):
         else:
             name = string_concat('historical ',
                                  smart_text(model._meta.verbose_name))
+
         meta_fields['verbose_name'] = name
         return meta_fields
 
@@ -224,6 +229,17 @@ class HistoricalRecords(object):
             return
         if not kwargs.get('raw', False):
             self.create_historical_record(instance, created and '+' or '~')
+
+    def store_change_reason(self, instance):
+        # If the change reason has been set, store it for save
+        if hasattr(instance, 'changeReason'):
+            self.change_reason = instance.changeReason
+        elif hasattr(instance, 'change_reason'):
+            self.change_reason = instance.change_reason
+
+    def pre_save(self, instance, **kwargs):
+        self.store_change_reason(instance)
+
 
     def post_delete(self, instance, **kwargs):
         self.create_historical_record(instance, '-')
@@ -235,8 +251,9 @@ class HistoricalRecords(object):
         attrs = {}
         for field in instance._meta.fields:
             attrs[field.attname] = getattr(instance, field.attname)
+
         manager.create(history_date=history_date, history_type=history_type,
-                       history_user=history_user, **attrs)
+                       history_user=history_user, history_change_reason=self.change_reason, **attrs)
 
     def get_history_user(self, instance):
         """Get the modifying user from instance or middleware."""

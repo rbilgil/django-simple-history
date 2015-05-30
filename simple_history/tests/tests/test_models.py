@@ -53,7 +53,7 @@ class HistoricalRecordsTest(TestCase):
             self.assertEqual(getattr(record, key), value)
         self.assertEqual(record.history_object.__class__, klass)
         for key, value in values_dict.items():
-            if key != 'history_type':
+            if 'history' not in key:
                 self.assertEqual(getattr(record.history_object, key), value)
 
     def test_create(self):
@@ -72,21 +72,44 @@ class HistoricalRecordsTest(TestCase):
         Poll.objects.create(question="what's up?", pub_date=today)
         p = Poll.objects.get()
         p.pub_date = tomorrow
+        p.changeReason = "For testing"
         p.save()
         update_record, create_record = p.history.all()
         self.assertRecordValues(create_record, Poll, {
             'question': "what's up?",
             'pub_date': today,
             'id': p.id,
-            'history_type': "+"
+            'history_type': "+",
         })
         self.assertRecordValues(update_record, Poll, {
             'question': "what's up?",
             'pub_date': tomorrow,
             'id': p.id,
-            'history_type': "~"
+            'history_type': "~",
         })
         self.assertDatetimesEqual(update_record.history_date, datetime.now())
+
+    def test_change_reason(self):
+        Poll.objects.create(question="what's up?", pub_date=today)
+        p = Poll.objects.get()
+        p.changeReason = "To test camelCase"
+        p.save()
+        update_record, create_record = p.history.all()
+        self.assertRecordValues(create_record, Poll, {
+            'history_change_reason': None
+        })
+        self.assertRecordValues(update_record, Poll, {
+            'history_change_reason': "To test camelCase"
+        })
+
+        p = Poll.objects.get()
+        p.question = "New question"
+        p.change_reason = "To test snake_case"
+        p.save()
+        new_record = p.history.all()[0]
+        self.assertRecordValues(new_record, Poll, {
+            'history_change_reason': "To test snake_case"
+        })
 
     def test_delete(self):
         p = Poll.objects.create(question="what's up?", pub_date=today)
