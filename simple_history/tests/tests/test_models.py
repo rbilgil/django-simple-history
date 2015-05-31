@@ -79,13 +79,13 @@ class HistoricalRecordsTest(TestCase):
             'question': "what's up?",
             'pub_date': today,
             'id': p.id,
-            'history_type': "+",
+            'history_type': "+"
         })
         self.assertRecordValues(update_record, Poll, {
             'question': "what's up?",
             'pub_date': tomorrow,
             'id': p.id,
-            'history_type': "~",
+            'history_type': "~"
         })
         self.assertDatetimesEqual(update_record.history_date, datetime.now())
 

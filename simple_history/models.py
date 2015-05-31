@@ -3,7 +3,6 @@ from __future__ import unicode_literals
 import threading
 import copy
 import warnings
-import re
 import django
 from django.db import models, router
 from django.db.models.fields.proxy import OrderWrt
