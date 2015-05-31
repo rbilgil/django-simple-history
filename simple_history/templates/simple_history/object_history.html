@@ -18,6 +18,7 @@
               <th scope="col">{% trans 'Date/time' %}</th>
               <th scope="col">{% trans 'Comment' %}</th>
               <th scope="col">{% trans 'Changed by' %}</th>
+              <th scope="col">{% trans 'Change reason' %}</th>
             </tr>
           </thead>
           <tbody>
@@ -38,6 +39,7 @@
                     None
                   {% endif %}
                 </td>
+                <td>{{ action.history_change_reason }}</td>
               </tr>
             {% endfor %}
           </tbody>
@@ -48,4 +50,3 @@
     </div>
   </div>
 {% endblock %}
-

@@ -234,10 +234,10 @@ class HistoricalRecords(object):
             self.create_historical_record(instance, created and '+' or '~')
 
     def pre_save(self, instance, **kwargs):
+        # Pre-save and delete, store the change reason for persisting after
         self.store_change_reason(instance)
 
     def store_change_reason(self, instance):
-        # If the change reason has been set, store it for saving later
         if hasattr(instance, 'changeReason'):
             self.change_reason = instance.changeReason
         elif hasattr(instance, 'change_reason'):
